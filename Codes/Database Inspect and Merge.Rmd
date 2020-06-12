@@ -239,9 +239,9 @@ I will first inspect the datasets quickly to see if row counts of all datasets a
 ```{r Inspect Dataset Structures and Merge}
 
 #### Inspect the Number of Observations ####
-tibble(MS = count(ms_broadband_tx)$n, godaddy = count(godaddy_county_tx)$n,
+knitr::kable(tibble(MS = count(ms_broadband_tx)$n, godaddy = count(godaddy_county_tx)$n,
        mlabsept = count(mlab_sept_tx)$n, mlaboct = count(mlab_oct_tx)$n, mlabnov = count(mlab_nov_tx)$n, mlabdec = count(mlab_dec_tx)$n,
-       txprop = count(tx_proprietor)$n, irr2000 = count(rural_2000_tx)$n, irr2010 = count(rural_2010_tx)$n)
+       txprop = count(tx_proprietor)$n, irr2000 = count(rural_2000_tx)$n, irr2010 = count(rural_2010_tx)$n))
 
 ```
 
@@ -286,7 +286,7 @@ tx_bb_entrepreneur_merged <- left_join(rural_2000_tx, rural_2010_tx, by = "count
 
 str(tx_bb_entrepreneur_merged)
 
-head(tx_bb_entrepreneur_merged, 20)
+knitr::kable(head(tx_bb_entrepreneur_merged, 20))
 
 ## Export the dataset into csv
 
