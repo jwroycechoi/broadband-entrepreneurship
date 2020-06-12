@@ -288,6 +288,15 @@ str(tx_bb_entrepreneur_merged)
 
 knitr::kable(head(tx_bb_entrepreneur_merged, 20))
 
+## Drop columns with duplicate information
+
+str(tx_bb_entrepreneur_merged)
+tx_bb_entrepreneur_merged <- tx_bb_entrepreneur_merged %>% 
+  rename(FIPS = FIPS2000) %>% 
+  select(-c("FIPS2010","state.x","state.y","ST","COUNTY.ID","COUNTY.NAME","BROADBAND.AVAILABILITY.PER.FCC","BROADBAND.USAGE",
+            "cfips","state.sept","county_name.sept","state.oct","county_name.oct","state.nov","county_name.nov","state.dec",
+            "county_name.dec"))
+
 ## Export the dataset into csv
 
 write_csv(tx_bb_entrepreneur_merged, "Broadband-Entrepreneurship-TX-merged.csv")
