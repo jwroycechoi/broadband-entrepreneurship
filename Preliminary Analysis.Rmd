@@ -1,0 +1,99 @@
+---
+title: "Preliminary Analysis"
+author: "Jaewon Royce Choi"
+date: "6/15/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Preliminary Analysis
+
+Preliminary statistical analysis of relationships between the variables.
+
+```{r Inspecting Variables, include=TRUE, results='hide'}
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+
+#### Read in the dataset ####
+
+tx_bb_entrepreneur_merged <- read_csv("Broadband-Entrepreneurship-TX-merged.csv")
+
+str(tx_bb_entrepreneur_merged)
+```
+
+> **Correlation Matrix for Preliminary Set of Variables**
+
+Basic correlation matrix with some preliminary variables.
+
+* IRR2010: Rural index (larger = rural)
+* proprietors_2017: # of sole proprietors in TX
+* pct_proprietors_employment_2017: % of sole proprietors in total employment
+* pct_broadband_FCC: FCC broadband availability in % (2017)
+* pct_broadband_MS: MS broadband availability in % (2019)
+* venturedensitydec19: Venture density by GoDaddy
+* highlyactive_vddec19: Highly active venture density by GoDaddy
+* prosperityindex2016: Prosperity index
+* frac_over_25DL.dec: % of M-Lab testers with over 25mbps of DL speed
+* frac_over_3UL.dec: % of M-Lab testers with over 3mbps of UL speed
+
+```{r Correlation Table}
+#### Correlation between variabes ####
+
+## Basic Correlation Table ##
+
+tx_bb_entrepreneur_merged %>% 
+  select(IRR2010, proprietors_2017, pct_proprietors_employment_2017, pct_broadband_FCC, pct_broadband_MS,
+         venturedensitydec19, highlyactive_vddec19, prosperityindex2016, frac_over_25DL.dec, frac_over_3UL.dec) %>% 
+  cor(method = "pearson", use = "complete.obs") %>% knitr::kable(format = "markdown", digits = 3)
+
+```
+
+> **Correlation Matrix with more Information**
+
+A correlation matrix with more in-depth information using the `chart.Correlation()` function in package `PerformanceAnalytics`.
+
+```{r Correlation Matrix, echo=TRUE, fig.retina=2, fig.align='center'}
+#install.packages("PerformanceAnalytics")
+
+tx_bb_entrepreneur_merged %>% 
+  select(IRR2010, proprietors_2017, pct_proprietors_employment_2017, pct_broadband_FCC, pct_broadband_MS,
+         venturedensitydec19, highlyactive_vddec19, prosperityindex2016, frac_over_25DL.dec, frac_over_3UL.dec) %>%
+  PerformanceAnalytics::chart.Correlation(histogram = T)
+
+```
+
+> ** Preliminary Exploration of Relationships further with Regressions**
+
+Few models to examine relationships between **entrepreneurship** and **broadband**.
+
+```{r}
+#### Exploring the relationships further with regressions ####
+
+## DV: Venture Density as Entrepreneurship Index
+## IV: Rural index, Proprietors share in employment, Broadband (FCC), Broadband (MS), Broadband speed
+
+prem_model <- lm(venturedensitydec19 ~ IRR2010 + pct_proprietors_employment_2017 + pct_broadband_FCC + pct_broadband_MS + frac_over_25DL.dec + frac_over_3UL.dec, data = tx_bb_entrepreneur_merged)
+
+summary(prem_model)
+
+```
+
+```{r}
+
+## IV added: Prosperity index
+
+prem_model2 <- lm(venturedensitydec19 ~ IRR2010 + pct_proprietors_employment_2017 + pct_broadband_FCC + pct_broadband_MS + frac_over_25DL.dec + frac_over_3UL.dec + prosperityindex2016, data = tx_bb_entrepreneur_merged)
+
+summary(prem_model2)
+
+## DV: Highly active venture density
+
+prem_model3 <- lm(highlyactive_vddec19 ~ IRR2010 + pct_proprietors_employment_2017 + pct_broadband_FCC + pct_broadband_MS + frac_over_25DL.dec + frac_over_3UL.dec + prosperityindex2016, data = tx_bb_entrepreneur_merged)
+
+summary(prem_model3)
+
+```
