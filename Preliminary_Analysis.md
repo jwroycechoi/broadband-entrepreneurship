@@ -54,7 +54,7 @@ tx_bb_entrepreneur_merged <- read_csv("Broadband-Entrepreneurship-TX-merged.csv"
 str(tx_bb_entrepreneur_merged)
 ```
 
-> **Correlation Matrix for Preliminary Set of Variables**
+> ### Correlation Matrix for Preliminary Set of Variables
 
 Basic correlation matrix with some preliminary variables.
 
@@ -97,7 +97,7 @@ tx_bb_entrepreneur_merged %>%
 | frac\_over\_25DL.dec               | \-0.519 |             0.278 |                            \-0.234 |               0.453 |              0.687 |               0.270 |                 0.242 |               0.293 |                1.000 |               0.857 |
 | frac\_over\_3UL.dec                | \-0.468 |             0.252 |                            \-0.209 |               0.456 |              0.662 |               0.246 |                 0.242 |               0.242 |                0.857 |               1.000 |
 
-> **Correlation Matrix with more Information**
+> ### Correlation Matrix with more Information
 
 A correlation matrix with more in-depth information using the
 `chart.Correlation()` function in package `PerformanceAnalytics`.
@@ -113,11 +113,16 @@ tx_bb_entrepreneur_merged %>%
 
 <img src="Preliminary_Analysis_files/figure-gfm/Correlation Matrix-1.png" width="672" style="display: block; margin: auto;" />
 
-> \*\* Preliminary Exploration of Relationships further with
-> Regressions\*\*
+> ### Preliminary Exploration of Relationships further with Regressions
 
 Few models to examine relationships between **entrepreneurship** and
-**broadband**.
+**broadband**. In general, I take the entrepreneurship measures as the
+dependent variable and others as the independent. Following the ASU
+white paper analysis, venture density is explored as a measure of
+entrepreneurial activities online. Sole proprietors share in total
+employment is taken into IV as it represents general small-mid sized
+business activities, but not all of them are active online as reflected
+in the venture density factor.
 
 ``` r
 #### Exploring the relationships further with regressions ####
@@ -228,3 +233,128 @@ summary(prem_model3)
     ##   (28 observations deleted due to missingness)
     ## Multiple R-squared:  0.4833, Adjusted R-squared:  0.4667 
     ## F-statistic: 29.13 on 7 and 218 DF,  p-value: < 2.2e-16
+
+> ### Comaparing Different Broadband Measures
+
+Preliminary explorations reveal interesting discrepancies between
+different measures of broadband. Here I will explore how these measures
+paint different pictures of broadband of Texas.
+
+``` r
+#### Comparing Broadband Measures in the Dataset ####
+
+## Broadband measures
+## pct_broadband_FCC: FCC's broadband availability (reported by the service providers)
+## pct_broadband_MS: MS's broadband availability (reported by the MS software service users)
+## pctbroadband: ASU team's measure derived from the ACS survey estimates (based on reported BB subscription info from respondents)
+
+summary(tx_bb_entrepreneur_merged[c("pct_broadband_FCC", "pct_broadband_MS", "pctbroadband")])
+```
+
+    ##  pct_broadband_FCC pct_broadband_MS  pctbroadband  
+    ##  Min.   :0.0000    Min.   :0.0100   Min.   :42.60  
+    ##  1st Qu.:0.5275    1st Qu.:0.0925   1st Qu.:61.48  
+    ##  Median :0.7750    Median :0.1650   Median :67.45  
+    ##  Mean   :0.7021    Mean   :0.2228   Mean   :67.24  
+    ##  3rd Qu.:0.9525    3rd Qu.:0.3200   3rd Qu.:72.90  
+    ##  Max.   :1.0000    Max.   :1.0000   Max.   :90.80  
+    ##  NA's   :6                          NA's   :22
+
+``` r
+tx_bb_entrepreneur_merged <- tx_bb_entrepreneur_merged %>%  # Converting ASU percentage numbers into fraction
+  mutate(pctbbfrac_ASU = pctbroadband/100,
+         pctbbfrac_poor_ASU = pctbroadband_poorpeople/100)
+
+## Summarize some key statistics of all these broadband variables
+
+# Some basic statistics
+tx_bb_entrepreneur_merged %>% 
+  select(c("pct_broadband_FCC", "pct_broadband_MS", "pctbbfrac_ASU")) %>% 
+  psych::describe() %>% knitr::kable(digits = 3)
+```
+
+|                     | vars |   n |  mean |    sd | median | trimmed |   mad |   min |   max | range |    skew | kurtosis |    se |
+| ------------------- | ---: | --: | ----: | ----: | -----: | ------: | ----: | ----: | ----: | ----: | ------: | -------: | ----: |
+| pct\_broadband\_FCC |    1 | 248 | 0.702 | 0.287 |  0.775 |   0.738 | 0.289 | 0.000 | 1.000 | 1.000 | \-0.821 |  \-0.391 | 0.018 |
+| pct\_broadband\_MS  |    2 | 254 | 0.223 | 0.185 |  0.165 |   0.194 | 0.141 | 0.010 | 1.000 | 0.990 |   1.484 |    2.232 | 0.012 |
+| pctbbfrac\_ASU      |    3 | 232 | 0.672 | 0.093 |  0.675 |   0.672 | 0.086 | 0.426 | 0.908 | 0.482 | \-0.048 |    0.023 | 0.006 |
+
+``` r
+# Who are the counties with minimum BB?
+
+# According to FCC BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pct_broadband_FCC == min(tx_bb_entrepreneur_merged$pct_broadband_FCC, na.rm = T)),]$county
+```
+
+    ## [1] "Llano County" "Upton County"
+
+``` r
+# According to MS BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pct_broadband_MS == min(tx_bb_entrepreneur_merged$pct_broadband_MS, na.rm = T)),]$county
+```
+
+    ## [1] "Borden County" "Kenedy County"
+
+``` r
+# According to ACS BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pctbbfrac_ASU == min(tx_bb_entrepreneur_merged$pctbbfrac_ASU, na.rm = T)),]$county
+```
+
+    ## [1] "Terrell County"
+
+``` r
+# Who are the counties with maximum BB?
+
+# According to FCC BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pct_broadband_FCC == max(tx_bb_entrepreneur_merged$pct_broadband_FCC, na.rm = T)),]$county
+```
+
+    ##  [1] "Aransas County"      "Bastrop County"      "Baylor County"      
+    ##  [4] "Bee County"          "Bexar County"        "Bosque County"      
+    ##  [7] "Brown County"        "Caldwell County"     "Cameron County"     
+    ## [10] "Dallas County"       "Denton County"       "DeWitt County"      
+    ## [13] "Ellis County"        "Erath County"        "Gonzales County"    
+    ## [16] "Grayson County"      "Guadalupe County"    "Hill County"        
+    ## [19] "Hood County"         "Johnson County"      "Karnes County"      
+    ## [22] "Kleberg County"      "Knox County"         "Lampasas County"    
+    ## [25] "Live Oak County"     "McLennan County"     "McMullen County"    
+    ## [28] "Nueces County"       "Palo Pinto County"   "Parker County"      
+    ## [31] "San Patricio County" "Somervell County"    "Tarrant County"     
+    ## [34] "Travis County"       "Willacy County"      "Wilson County"      
+    ## [37] "Wise County"
+
+``` r
+# According to MS BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pct_broadband_MS == max(tx_bb_entrepreneur_merged$pct_broadband_MS, na.rm = T)),]$county
+```
+
+    ## [1] "Loving County"
+
+``` r
+# According to ACS BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pctbbfrac_ASU == max(tx_bb_entrepreneur_merged$pctbbfrac_ASU, na.rm = T)),]$county
+```
+
+    ## [1] "Fort Bend County"
+
+``` r
+## Take a look at the frequency distribution of each BB measures
+
+grid.arrange(
+    ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_FCC)) + geom_histogram() + theme_minimal(),
+    ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_MS)) + geom_histogram() + theme_minimal(),
+    ggplot(tx_bb_entrepreneur_merged, aes(x = pctbbfrac_ASU)) + geom_histogram() + theme_minimal(),
+    nrow = 1, ncol = 3, top = "Broadband Measure Distribution"
+  )
+```
+
+    ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+
+    ## Warning: Removed 6 rows containing non-finite values (stat_bin).
+
+    ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+    ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+
+    ## Warning: Removed 22 rows containing non-finite values (stat_bin).
+
+<img src="Preliminary_Analysis_files/figure-gfm/Broadband Comparison-1.png" width="672" style="display: block; margin: auto;" />
