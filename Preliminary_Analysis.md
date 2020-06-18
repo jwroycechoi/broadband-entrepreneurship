@@ -358,3 +358,28 @@ grid.arrange(
     ## Warning: Removed 22 rows containing non-finite values (stat_bin).
 
 <img src="Preliminary_Analysis_files/figure-gfm/Broadband Comparison-1.png" width="672" style="display: block; margin: auto;" />
+
+``` r
+## Plotting relationships between BB measures
+
+grid.arrange(
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_FCC, y = pct_broadband_MS)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("Microsoft Broadband") + xlab("FCC Broadband"),
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_FCC, y = pctbbfrac_ASU)) + geom_point() + geom_smooth(method = "lm") + ylab("ACS Broadband Subscription") + xlab("FCC Broadband") + theme_minimal(),
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_MS, y = pctbbfrac_ASU)) + geom_point() + geom_smooth(method = "lm") + ylab("ACS Broadband Subscription") + xlab("Microsoft Broadband") + theme_minimal(),
+  nrow = 1, ncol = 3
+)
+```
+
+    ## Warning: Removed 6 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 6 rows containing missing values (geom_point).
+
+    ## Warning: Removed 27 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 27 rows containing missing values (geom_point).
+
+    ## Warning: Removed 22 rows containing non-finite values (stat_smooth).
+
+    ## Warning: Removed 22 rows containing missing values (geom_point).
+
+<img src="Preliminary_Analysis_files/figure-gfm/Correlation between BB measures-1.png" width="672" style="display: block; margin: auto;" />
