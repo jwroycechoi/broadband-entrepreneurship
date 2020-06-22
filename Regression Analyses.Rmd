@@ -1,0 +1,367 @@
+---
+title: "Regression Analyses"
+author: "Jaewon Royce Choi"
+date: "6/19/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this document, I will set up, run, and examine several multiple regression models. In general, the models aim to investigate the relationhips between **broadband** and **entrepreneurship**. Specifically, **how broadband influences entrepreneurship**. Furthermore, the models will explore how different measures of broadband, specifically measures of availability and adoption, explain entrepreneurial activities differently. Finally, I will explore how broadband as well as entrepreneurial factors contribute to the overall prosperity.
+
+```{r Load packages & Get the dataset}
+
+## Load packages
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+#install.packages("stargazer", dependencies = T)    # A package for better looking tables for results
+library(stargazer)
+
+## Read in dataset
+tx_bb_entrepreneur_merged <- read_csv("Broadband-Entrepreneurship-TX-merged.csv")
+
+
+```
+
+> ### Broadband and Entrepreneurship
+
+First, let's take another look at the variables that I examined in the previous preliminary analysis.
+
+* IRR2010: Rural index (larger = rural)
+* proprietors_2017: # of sole proprietors in TX
+* pct_proprietors_employment_2017: % of sole proprietors in total employment
+* pct_broadband_FCC: FCC broadband availability in % (2017)
+* pct_broadband_MS: MS broadband availability in % (2019)
+* pctbbfrac_ASU: ACS broadband subscription measure used by the ASU white paper
+* venturedensitydec19: Venture density by GoDaddy
+* highlyactive_vddec19: Highly active venture density by GoDaddy
+* prosperityindex2016: Prosperity index
+* frac_over_25DL.dec: % of M-Lab testers with over 25mbps of DL speed
+* frac_over_3UL.dec: % of M-Lab testers with over 3mbps of UL speed
+
+Since there are several venture density variables measured in different time periods, I will create an aggregate variable averaging the venture densities over the time period.
+
+```{r Average Venture Density}
+#### Create average aggregates of venture density ####
+tx_bb_entrepreneur_merged <- tx_bb_entrepreneur_merged %>% 
+  mutate(venturedensity_mean = (venturedensitymay18 + venturedensitynov18 + venturedensityfeb19 + venturedensitysep19 +
+                                  venturedensityoct19 + venturedensitynov19 + venturedensitydec19) / 7,
+         highlyactive_vd_mean = (highlyactive_vdmay18 + highlyactive_vdnov18 + highlyactive_vdfeb19 + highlyactive_vdsep19 +
+                                   highlyactive_vdoct19 + highlyactive_vdnov19 + highlyactive_vddec19) / 7)
+
+summary(tx_bb_entrepreneur_merged[c("venturedensity_mean", "venturedensitydec19", "highlyactive_vd_mean", "highlyactive_vddec19")])
+
+
+```
+
+#### Broadband's Effect on Entrepreneurial Outcome
+
+Here I investigate **models that estimate broadband variables' effect on the entrepreneurial outcome.** Several different broadband measures are in the dataset. I will first model **each measure's relationship with the entrepreneurial outcome separately.**
+
+Entrepreneurial outcomes can be represented by several variables in this dataset. As the ASU research team's white paper argued, the venture density provided by GoDaddy activities reflects actual entrepreneurial activities in the form of online domain creation. In the dataset, we also have Texas state's sole proprietor statistics. These variables reflect small and medium sized businesses in each county.
+
+##### Control Variables
+
+For control variables, various demographic measures derived from the ACS estimates are available in the dataset. Furthermore, the ruralithy of the counties are reflected in the IRR index. Number of population, and regional intustry characteristics will be also included as control variables.
+
+> #### FCC Broadband Availability
+
+```{r FCC Regression Analyses, results='asis'}
+#install.packages("lm.beta")
+library(lm.beta)
+#### Model 1 ####
+
+## DV: Venture Density, Highly Active VD, Proprietors' Share
+## IV: Broadband Availability (FCC)
+
+model_fcc_vd <- lm(venturedensity_mean ~ pct_broadband_FCC + IRR2010 + population + pctblack + pctnative + pctasian + pcthispanic +
+                pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation + pctinformation_tech + pctfinance +
+                pctprofessional + pcteducation + pctother_occupation + pctpublic + pcthighschool + pctcollege +
+                pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+
+model_fcc_hvd <- lm(highlyactive_vd_mean ~ pct_broadband_FCC + IRR2010 + population + pctblack + pctnative + pctasian + pcthispanic +
+                pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation + pctinformation_tech + pctfinance +
+                pctprofessional + pcteducation + pctother_occupation + pctpublic + pcthighschool + pctcollege +
+                pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+
+model_fcc_pro <- lm(pct_proprietors_employment_2017 ~ pct_broadband_FCC + IRR2010 + population + pctblack + pctnative + pctasian +
+                        pcthispanic + pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation +
+                        pctinformation_tech + pctfinance + pctprofessional + pcteducation + pctother_occupation + pctpublic +
+                        pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+## Generate Table
+stargazer(model_fcc_vd, model_fcc_hvd, model_fcc_pro, title = "Regression Results", type = "html",
+          align = TRUE, dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("FCC Broadband Availability","Rurality Index (2010)","Population","Black","Native American",
+                               "Asian","Hispanic","Agriculture","Construction","Wholesale","Retail","Transportation","IT",
+                               "Finance","Professional","Education","Other occupation","Public","Highschool","College",
+                               "Millenials","GenX","Babyboomer","Foreign Born","Median Income (2017)"),
+          omit.stat = c("ser"), no.space = TRUE)
+
+## Standardized Models
+std_model_fcc_vd <- lm(scale(venturedensity_mean) ~ scale(pct_broadband_FCC) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+
+std_model_fcc_hvd <- lm(scale(highlyactive_vd_mean) ~ scale(pct_broadband_FCC) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+
+std_model_fcc_pro <- lm(scale(pct_proprietors_employment_2017) ~ scale(pct_broadband_FCC) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+## Generate Table
+stargazer(std_model_fcc_vd, std_model_fcc_hvd, std_model_fcc_pro, title = "Standardized Regression Results", type = "html",
+          align = TRUE, dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("FCC Broadband Availability","Rurality Index (2010)","Population","Black","Native American",
+                               "Asian","Hispanic","Agriculture","Construction","Wholesale","Retail","Transportation","IT",
+                               "Finance","Professional","Education","Other occupation","Public","Highschool","College",
+                               "Millenials","GenX","Babyboomer","Foreign Born","Median Income (2017)"),
+          omit.stat = c("ser"), no.space = TRUE)
+```
+
+> #### MS Broadband Availability
+
+```{r MS Regression Analyses, results='asis'}
+#### Model 2 ####
+
+## DV: Venture Density, Highly Active VD, Proprietors' Share
+## IV: Broadband Availability (MS)
+
+model_ms_vd <- lm(venturedensity_mean ~ pct_broadband_MS + IRR2010 + population + pctblack + pctnative + pctasian + pcthispanic +
+                pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation + pctinformation_tech + pctfinance +
+                pctprofessional + pcteducation + pctother_occupation + pctpublic + pcthighschool + pctcollege +
+                pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+
+model_ms_hvd <- lm(highlyactive_vd_mean ~ pct_broadband_MS + IRR2010 + population + pctblack + pctnative + pctasian + pcthispanic +
+                pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation + pctinformation_tech + pctfinance +
+                pctprofessional + pcteducation + pctother_occupation + pctpublic + pcthighschool + pctcollege +
+                pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+
+model_ms_pro <- lm(pct_proprietors_employment_2017 ~ pct_broadband_MS + IRR2010 + population + pctblack + pctnative + pctasian + pcthispanic +
+                pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation + pctinformation_tech + pctfinance +
+                pctprofessional + pcteducation + pctother_occupation + pctpublic + pcthighschool + pctcollege +
+                pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+## Generate Table
+stargazer(model_ms_vd, model_ms_hvd, model_ms_pro, title = "Regression Results", type = "html",
+          align = TRUE, dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("MS Broadband Availability","Rurality Index (2010)","Population","Black","Native American",
+                               "Asian","Hispanic","Agriculture","Construction","Wholesale","Retail","Transportation","IT",
+                               "Finance","Professional","Education","Other occupation","Public","Highschool","College",
+                               "Millenials","GenX","Babyboomer","Foreign Born","Median Income (2017)"),
+          omit.stat = c("ser"), no.space = TRUE)
+
+## Standardized Models
+std_model_ms_vd <- lm(scale(venturedensity_mean) ~ scale(pct_broadband_MS) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+
+std_model_ms_hvd <- lm(scale(highlyactive_vd_mean) ~ scale(pct_broadband_MS) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+
+std_model_ms_pro <- lm(scale(pct_proprietors_employment_2017) ~ scale(pct_broadband_MS) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+## Generate Table
+stargazer(std_model_ms_vd, std_model_ms_hvd, std_model_ms_pro, title = "Standardized Regression Results", type = "html",
+          align = TRUE, dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("MS Broadband Availability","Rurality Index (2010)","Population","Black","Native American",
+                               "Asian","Hispanic","Agriculture","Construction","Wholesale","Retail","Transportation","IT",
+                               "Finance","Professional","Education","Other occupation","Public","Highschool","College",
+                               "Millenials","GenX","Babyboomer","Foreign Born","Median Income (2017)"),
+          omit.stat = c("ser"), no.space = TRUE)
+
+```
+
+> #### ACS Broadband Subscription Level
+
+```{r ACS Regression Analyses, results='asis'}
+#### Model 3 ####
+
+## DV: Venture Density, Highly Active VD, Proprietors' Share
+## IV: Broadband Subscription (ACS)
+
+model_acs_vd <- lm(venturedensity_mean ~ pctbbfrac_ASU + IRR2010 + population + pctblack + pctnative + pctasian + pcthispanic +
+                pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation + pctinformation_tech + pctfinance +
+                pctprofessional + pcteducation + pctother_occupation + pctpublic + pcthighschool + pctcollege +
+                pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+
+model_acs_hvd <- lm(highlyactive_vd_mean ~ pctbbfrac_ASU + IRR2010 + population + pctblack + pctnative + pctasian + pcthispanic +
+                pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation + pctinformation_tech + pctfinance +
+                pctprofessional + pcteducation + pctother_occupation + pctpublic + pcthighschool + pctcollege +
+                pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+
+model_acs_pro <- lm(pct_proprietors_employment_2017 ~ pctbbfrac_ASU + IRR2010 + population + pctblack + pctnative + pctasian + 
+                      pcthispanic + pctagriculture + pctconstruction + pctwholesale + pctretail + pcttransportation + 
+                      pctinformation_tech + pctfinance + pctprofessional + pcteducation + pctother_occupation + pctpublic + 
+                      pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer + pctforeignborn + medinc2017,
+              data = tx_bb_entrepreneur_merged)
+## Generate Table
+stargazer(model_acs_vd, model_acs_hvd, model_acs_pro, title = "Regression Results", type = "html",
+          align = TRUE, dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("ACS Broadband Subscription","Rurality Index (2010)","Population","Black","Native American",
+                               "Asian","Hispanic","Agriculture","Construction","Wholesale","Retail","Transportation","IT",
+                               "Finance","Professional","Education","Other occupation","Public","Highschool","College",
+                               "Millenials","GenX","Babyboomer","Foreign Born","Median Income (2017)"),
+          omit.stat = c("ser"), no.space = TRUE)
+
+## Standardized Models
+std_model_acs_vd <- lm(scale(venturedensity_mean) ~ scale(pctbbfrac_ASU) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+
+std_model_acs_hvd <- lm(scale(highlyactive_vd_mean) ~ scale(pctbbfrac_ASU) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+
+std_model_acs_pro <- lm(scale(pct_proprietors_employment_2017) ~ scale(pctbbfrac_ASU) + scale(IRR2010) + scale(population) + scale(pctblack) +
+                scale(pctnative) + scale(pctasian) + scale(pcthispanic) + scale(pctagriculture) + scale(pctconstruction) +
+                scale(pctwholesale) + scale(pctretail) + scale(pcttransportation) + scale(pctinformation_tech) + scale(pctfinance) +
+                scale(pctprofessional) + scale(pcteducation) + scale(pctother_occupation) + scale(pctpublic) + scale(pcthighschool) +
+                scale(pctcollege) + scale(pctmillennial) + scale(pctgenx) + scale(pctbabyboomer) + scale(pctforeignborn) +
+                scale(medinc2017),
+              data = tx_bb_entrepreneur_merged)
+## Generate Table
+stargazer(std_model_acs_vd, std_model_acs_hvd, std_model_acs_pro, title = "Standardized Regression Results", type = "html",
+          align = TRUE, dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("ACS Broadband Subscription","Rurality Index (2010)","Population","Black","Native American",
+                               "Asian","Hispanic","Agriculture","Construction","Wholesale","Retail","Transportation","IT",
+                               "Finance","Professional","Education","Other occupation","Public","Highschool","College",
+                               "Millenials","GenX","Babyboomer","Foreign Born","Median Income (2017)"),
+          omit.stat = c("ser"), no.space = TRUE)
+
+
+```
+
+##### Models with Fewer Control Variables
+
+Below, simpler models with fewer, yet important control variables will be explored. In a previous meeting with Dr.Brian Whitacre, he suggested age and education might be meaningful control variables. Here I will use rurality index, population, education, and age cohort variables as control variables.
+
+> #### FCC Broadband Availability
+
+```{r FCC Simpler Regression Models, results='asis'}
+## Fewer Control Variables: Rurality, population, education level, age cohorts
+## FCC Broadband
+# VD model
+model_fcc_vd2 <- lm(venturedensity_mean ~ pct_broadband_FCC + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                    data = tx_bb_entrepreneur_merged)
+
+# HVD model
+model_fcc_hvd2 <- lm(highlyactive_vd_mean ~ pct_broadband_FCC + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                    data = tx_bb_entrepreneur_merged)
+
+# Proprietor model
+model_fcc_pro2 <- lm(pct_proprietors_employment_2017 ~ pct_broadband_FCC + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                     data = tx_bb_entrepreneur_merged)
+
+## Generate Table
+stargazer(model_fcc_vd2, model_fcc_hvd2, model_fcc_pro2, type = "html", align = T,
+          dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("FCC Broadband Availability",
+                               "Rurality Index (2010)",
+                               "Population","Highschool","College",
+                               "Millenials","GenX","Babyboomer"),
+          omit.stat = c("ser"), no.space = T)
+
+
+```
+
+> #### MS Broadband Availability
+
+```{r MS Simpler Models, results='asis'}
+## MS Broadband
+# VD model
+model_ms_vd2 <- lm(venturedensity_mean ~ pct_broadband_MS + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                   data = tx_bb_entrepreneur_merged)
+
+# HVD model
+model_ms_hvd2 <- lm(highlyactive_vd_mean ~ pct_broadband_MS + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                   data = tx_bb_entrepreneur_merged)
+
+# Proprietor model
+model_ms_pro2 <- lm(pct_proprietors_employment_2017 ~ pct_broadband_MS + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                   data = tx_bb_entrepreneur_merged)
+
+## Generate Table
+stargazer(model_ms_vd2, model_ms_hvd2, model_ms_pro2, type = "html", align = T,
+          dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("MS Broadband Availability",
+                               "Rurality Index (2010)",
+                               "Population","Highschool","College",
+                               "Millenials","GenX","Babyboomer"),
+          omit.stat = c("ser"), no.space = T)
+
+```
+
+> #### ACS Broadband Subscription Level
+
+```{r ACS Simpler Models, results='asis'}
+## ACS Broadband
+# VD model
+model_acs_vd2 <- lm(venturedensity_mean ~ pctbbfrac_ASU + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                   data = tx_bb_entrepreneur_merged)
+
+# HVD model
+model_acs_hvd2 <- lm(highlyactive_vd_mean ~ pctbbfrac_ASU + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                    data = tx_bb_entrepreneur_merged)
+
+# Proprietor model
+model_acs_pro2 <- lm(pct_proprietors_employment_2017 ~ pctbbfrac_ASU + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                    data = tx_bb_entrepreneur_merged)
+
+## Generate Table
+stargazer(model_acs_vd2, model_acs_hvd2, model_acs_pro2, type = "html", align = T,
+          dep.var.labels = c("Venture Density","Highly Active VD", "Proprietors Share"),
+          covariate.labels = c("ACS Broadband Subscription",
+                               "Rurality Index (2010)",
+                               "Population","Highschool","College",
+                               "Millenials","GenX","Babyboomer"),
+          omit.stat = c("ser"), no.space = T)
+
+
+```
+
+
