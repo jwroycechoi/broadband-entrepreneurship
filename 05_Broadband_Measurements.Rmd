@@ -1,0 +1,143 @@
+---
+title: "Broadband Measurements"
+author: "Jaewon R. Choi"
+date: "7/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = 'center', warning = FALSE)
+```
+
+Here I will explore different broadband measurements available. In the current dataset, we have four different measures of broadband:
+
+* **FCC Broadband Availability**: % of people per county with access to fixed terrestrial broadband at speeds of 25 Mbps / 3 Mbps as of the end of 2017
+* **Microsoft Broadband Usage**: % of people per county that use the Internet at broadband speeds based on people's usage of Microsoft services as of November 2019
+* **ACS Broadband Subscription**: % of people per county that has broadband subscriptions of any type (2017 ACS 5-year estimates)
+* **M-Lab Broadband Usage**: Average % of people who reported broadband speed of 25 Mbps / 3 Mbps in M-Lab tests from September 2019 to December 2019
+
+Throughout this page, I will explore descriptive statistics of these measures, distributions of the measures, correlations between these measures, and also how these measures look like on the map geographically.
+
+## Descriptive Statistics of Broadband Measures
+
+```{r Impoart Libraries, results='hide'}
+library(leaflet)
+library(tidyverse)
+library(RColorBrewer)
+library(tigris)
+library(ggplot2)
+library(sp)
+library(stargazer)
+library(gridExtra)
+
+#### Import the merged dataset V2 ####
+tx_bb_entrepreneur_merged_v2 <- read_csv("https://raw.githubusercontent.com/jwroycechoi/broadband-entrepreneurship/master/Datasets/Broadband-Entrepreneurship-TX-merged_v2.csv")
+
+## Set up spatial dataframe
+tx_county <- counties("Texas")
+tx_bb_entrepreneur_merged_v3 <- sp::merge(tx_county, tx_bb_entrepreneur_merged_v2,
+                                          by.x = "GEOID", by.y = "FIPS")
+```
+
+```{r Descriptive Statistics, results='asis'}
+#### Descriptive Statistics ####
+tx_bb_entrepreneur_merged_v2 %>% 
+  select(pct_broadband_FCC, pct_broadband_MS, pctbbfrac_ASU, pct_broadband_mlab) %>% 
+  stargazer(as.data.frame(.), type = "html")
+```
+
+## Distributions of Broadband Measures
+
+```{r Distributions of Broadband Measures, echo=FALSE}
+grid.arrange(
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_broadband_FCC)) + geom_histogram() + theme_minimal() + xlab("FCC Broadband"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_broadband_MS)) + geom_histogram() + theme_minimal() + xlab("MS Broadband"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pctbbfrac_ASU)) + geom_histogram() + theme_minimal() + xlab("ACS Broadband Subscription"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_broadband_mlab)) + geom_histogram() + theme_minimal() + xlab("M-Lab Broadband"),
+  nrow = 2, ncol = 2, top = "Broadband Measure Distribution"
+)
+```
+
+## Correlations b/w Broadband Measures
+
+```{r Correlations b/w Broadband Measures, echo=FALSE}
+grid.arrange(
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_broadband_FCC, y = pct_broadband_MS)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("Microsoft Broadband") + xlab("FCC Broadband"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_broadband_FCC, y = pctbbfrac_ASU)) + geom_point() + geom_smooth(method = "lm") + ylab("ACS BB Subscription") + xlab("FCC Broadband") + theme_minimal(),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_broadband_FCC, y = pct_broadband_mlab)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("M-Lab Broadband") + xlab("FCC Broadband"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_broadband_MS, y = pct_broadband_mlab)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("M-Lab Broadband") + xlab("Microsoft Broadband"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_broadband_MS, y = pctbbfrac_ASU)) + geom_point() + geom_smooth(method = "lm") + ylab("ACS BB Subscription") + xlab("Microsoft Broadband") + theme_minimal(),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pctbbfrac_ASU, y = pct_broadband_mlab)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("M-Lab Broadband") + xlab("ACS BB Subscription"),
+  nrow = 2, ncol = 3, top = "Correlations b/w Broadband Measures"
+)
+```
+
+## Mapping Different Broadband Measures
+
+```{r Map Setup, echo=FALSE, results='hide'}
+## Create continuous color palette function based on FCC broadband range (0~1) ##
+pal <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$pct_broadband_FCC)
+## Set a popup template ##
+popup_tx <- paste0("<strong>", tx_bb_entrepreneur_merged_v3$county,
+                   "</strong><br />FCC: ", tx_bb_entrepreneur_merged_v3$pct_broadband_FCC*100, "%",
+                   "<br />MS: ", tx_bb_entrepreneur_merged_v3$pct_broadband_MS*100, "%",
+                   "<br />ACS: ", tx_bb_entrepreneur_merged_v3$pctbbfrac_ASU*100, "%",
+                   "<br />M-Lab: ", round(tx_bb_entrepreneur_merged_v3$pct_broadband_mlab*100, digits = 1), "%")
+head(popup_tx)
+## Create a map object ##
+map <- leaflet(tx_bb_entrepreneur_merged_v3)
+```
+
+### FCC Broadband Availability in Texas
+
+```{r FCC Broadband Map, echo=FALSE}
+## FCC Broadband Map ##
+map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
+  addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
+                                   color = ~pal(pct_broadband_FCC),
+              popup = ~popup_tx) %>% 
+  addLegend("bottomright", pal = pal, values = ~pct_broadband_FCC,
+            title = "FCC Broadband (%)",
+            labFormat = labelFormat(suffix = "%", transform = function(x) 100*x), na.label = "N/A", opacity = 1)
+```
+
+### Microsoft Broadband Usage in Texas
+
+```{r MS Broadband Usage, echo=FALSE}
+## MS Broadband Map ##
+map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
+  addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
+              color = ~pal(pct_broadband_MS),
+              popup = ~popup_tx) %>% 
+  addLegend("bottomright", pal = pal, values = ~pct_broadband_MS,
+            title = "MS Broadband (%)",
+            labFormat = labelFormat(suffix = "%", transform = function(x) 100*x), na.label = "N/A", opacity = 1)
+```
+
+### ACS Broadband Subscription in Texas
+
+```{r ACS Broadband Subscription, echo=FALSE}
+## ACS Broadband Subscription Map ##
+map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
+  addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
+              color = ~pal(pctbbfrac_ASU),
+              popup = ~popup_tx) %>% 
+  addLegend("bottomright", pal = pal, values = ~pctbbfrac_ASU,
+            title = "ACS Broadband Subscription (%)",
+            labFormat = labelFormat(suffix = "%", transform = function(x) 100*x), na.label = "N/A", opacity = 1)
+```
+
+### M-Lab Broadband Usage in Texas
+
+```{r M-Lab Broadband Usage, echo=FALSE}
+## M-Lab Broadband Map ##
+map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
+  addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
+              color = ~pal(pct_broadband_mlab),
+              popup = ~popup_tx) %>% 
+  addLegend("bottomright", pal = pal, values = ~pct_broadband_mlab,
+            title = "M-Lab Broadband (%)",
+            labFormat = labelFormat(suffix = "%", transform = function(x) 100*x), na.label = "N/A", opacity = 1)
+```
+
+

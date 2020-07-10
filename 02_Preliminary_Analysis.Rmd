@@ -1,0 +1,180 @@
+---
+title: "Preliminary Analysis"
+author: "Jaewon Royce Choi"
+date: "6/15/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+Preliminary statistical analysis of relationships between the variables.
+
+```{r Inspecting Variables, include=TRUE, results='hide'}
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+
+#### Read in the dataset ####
+
+tx_bb_entrepreneur_merged <- read_csv("https://raw.githubusercontent.com/jwroycechoi/broadband-entrepreneurship/master/Datasets/Broadband-Entrepreneurship-TX-merged_v2.csv")
+
+str(tx_bb_entrepreneur_merged)
+```
+
+## Correlation Matrix for Preliminary Set of Variables
+
+Basic correlation matrix with some preliminary variables.
+
+* IRR2010: Rural index (larger = rural)
+* proprietors_2017: # of sole proprietors in TX
+* pct_proprietors_employment_2017: % of sole proprietors in total employment
+* pct_broadband_FCC: FCC broadband availability in % (2017)
+* pct_broadband_MS: MS broadband availability in % (2019)
+* venturedensitydec19: Venture density by GoDaddy
+* highlyactive_vddec19: Highly active venture density by GoDaddy
+* prosperityindex2016: Prosperity index
+* frac_BB.dec: % of M-Lab testers with over 25mbps of DL speed & 3mbps of UL
+
+
+```{r Correlation Table}
+#### Correlation between variabes ####
+
+## Basic Correlation Table ##
+
+tx_bb_entrepreneur_merged %>% 
+  select(IRR2010, proprietors_2017, pct_proprietors_employment_2017, pct_broadband_FCC, pct_broadband_MS,
+         venturedensitydec19, highlyactive_vddec19, prosperityindex2016, frac_BB.dec) %>% 
+  cor(method = "pearson", use = "complete.obs") %>% knitr::kable(format = "markdown", digits = 3)
+
+```
+
+### Correlation Matrix with more Information
+
+A correlation matrix with more in-depth information using the `chart.Correlation()` function in package `PerformanceAnalytics`.
+
+```{r Correlation Matrix, echo=TRUE, fig.retina=2, fig.align='center'}
+#install.packages("PerformanceAnalytics")
+
+tx_bb_entrepreneur_merged %>% 
+  select(IRR2010, proprietors_2017, pct_proprietors_employment_2017, pct_broadband_FCC, pct_broadband_MS,
+         venturedensitydec19, highlyactive_vddec19, prosperityindex2016, frac_BB.dec) %>%
+  PerformanceAnalytics::chart.Correlation(histogram = T)
+
+```
+
+## Preliminary Exploration of Relationships further with Regressions
+
+Few models to examine relationships between **entrepreneurship** and **broadband**. In general, I take the entrepreneurship measures as the dependent variable and others as the independent. Following the ASU white paper analysis, venture density is explored as a measure of entrepreneurial activities online. Sole proprietors share in total employment is taken into IV as it represents general small-mid sized business activities, but not all of them are active online as reflected in the venture density factor.
+
+```{r Preliminary Regression Modeling}
+#### Exploring the relationships further with regressions ####
+
+## DV: Venture Density as Entrepreneurship Index
+## IV: Rural index, Proprietors share in employment, Broadband (FCC), Broadband (MS), Broadband (M-Lab), Broadband Subscription
+#install.packages("stargazer")
+library(stargazer)
+
+prem_model <- lm(venturedensitydec19 ~ IRR2010 + pct_proprietors_employment_2017 + pct_broadband_FCC + pct_broadband_MS + frac_BB.dec + pctbbfrac_ASU, data = tx_bb_entrepreneur_merged)
+
+## DV: Highly active venture density
+
+prem_model2 <- lm(highlyactive_vddec19 ~ IRR2010 + pct_proprietors_employment_2017 + pct_broadband_FCC + pct_broadband_MS + frac_BB.dec + pctbbfrac_ASU, data = tx_bb_entrepreneur_merged)
+
+## DV: Proprietor's share in employment as an indicator of entrepreneurship
+
+prem_model3 <- lm(pct_proprietors_employment_2017 ~ IRR2010 + pct_broadband_FCC + pct_broadband_MS + frac_BB.dec + pctbbfrac_ASU, data = tx_bb_entrepreneur_merged)
+```
+
+```{r Result Table, results='asis', echo=FALSE}
+## Generate Table
+
+stargazer(prem_model, prem_model2, prem_model3, title = "Preliminary Regression Modeling",
+          type = "html", align = TRUE,
+          dep.var.labels = c("Venture Density","Highly Active VD","Proprietors Share"),
+          covariate.labels = c("Rurality Index (2010)","Proprietors Share (2017)","Broadband (FCC)","Broadband (MS)",
+                               "Broadband (M-Lab)","Broadband Subscription (ACS)"),
+          omit.stat = c("ser"), no.space = TRUE)
+
+
+```
+
+
+## Comaparing Different Broadband Measures
+
+Preliminary explorations reveal interesting discrepancies between different measures of broadband. Here I will explore how these measures paint different pictures of broadband of Texas.
+
+```{r Broadband Comparison, fig.retina=2, fig.align='center'}
+#### Comparing Broadband Measures in the Dataset ####
+
+## Broadband measures
+## pct_broadband_FCC: FCC's broadband availability (reported by the service providers)
+## pct_broadband_MS: MS's broadband availability (reported by the MS software service users)
+## frac_BB.dec: Broadband speed users' share based on M-Lab data (reported by the M-Lab test respondents)
+## pctbbfrac_ASU: ASU team's measure derived from the ACS survey estimates (based on reported BB subscription info from respondents)
+
+## Summarize some key statistics of all these broadband variables
+
+# Some basic statistics
+tx_bb_entrepreneur_merged %>% 
+  select(c("pct_broadband_FCC", "pct_broadband_MS", "frac_BB.dec", "pctbbfrac_ASU")) %>% 
+  psych::describe() %>% knitr::kable(digits = 3)
+
+# Who are the counties with minimum BB?
+
+# According to FCC BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pct_broadband_FCC == min(tx_bb_entrepreneur_merged$pct_broadband_FCC, na.rm = T)),]$county
+
+# According to MS BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pct_broadband_MS == min(tx_bb_entrepreneur_merged$pct_broadband_MS, na.rm = T)),]$county
+
+# According to M-Lab BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$frac_BB.dec == min(tx_bb_entrepreneur_merged$frac_BB.dec, na.rm = T)),]$county
+
+# According to ACS BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pctbbfrac_ASU == min(tx_bb_entrepreneur_merged$pctbbfrac_ASU, na.rm = T)),]$county
+
+# Who are the counties with maximum BB?
+
+# According to FCC BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pct_broadband_FCC == max(tx_bb_entrepreneur_merged$pct_broadband_FCC, na.rm = T)),]$county
+
+# According to MS BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pct_broadband_MS == max(tx_bb_entrepreneur_merged$pct_broadband_MS, na.rm = T)),]$county
+
+# According to M-Lab BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$frac_BB.dec == max(tx_bb_entrepreneur_merged$frac_BB.dec, na.rm = T)),]$county
+
+# According to ACS BB data
+tx_bb_entrepreneur_merged[which(tx_bb_entrepreneur_merged$pctbbfrac_ASU == max(tx_bb_entrepreneur_merged$pctbbfrac_ASU, na.rm = T)),]$county
+
+
+## Take a look at the frequency distribution of each BB measures
+
+grid.arrange(
+    ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_FCC)) + geom_histogram() + theme_minimal() + xlab("FCC Broadband"),
+    ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_MS)) + geom_histogram() + theme_minimal() + xlab("MS Broadband"),
+    ggplot(tx_bb_entrepreneur_merged, aes(x = pctbbfrac_ASU)) + geom_histogram() + theme_minimal() + xlab("ACS Broadband Subscription"),
+    ggplot(tx_bb_entrepreneur_merged, aes(x = frac_BB.dec)) + geom_histogram() + theme_minimal() + xlab("M-Lab Broadband"),
+    nrow = 2, ncol = 2, top = "Broadband Measure Distribution"
+  )
+
+```
+
+```{r Correlation between BB measures, fig.retina=2, fig.align='center'}
+
+## Plotting relationships between BB measures
+
+grid.arrange(
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_FCC, y = pct_broadband_MS)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("Microsoft Broadband") + xlab("FCC Broadband"),
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_FCC, y = pctbbfrac_ASU)) + geom_point() + geom_smooth(method = "lm") + ylab("ACS BB Subscription") + xlab("FCC Broadband") + theme_minimal(),
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_FCC, y = frac_BB.dec)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("M-Lab Broadband") + xlab("FCC Broadband"),
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_MS, y = frac_BB.dec)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("M-Lab Broadband") + xlab("Microsoft Broadband"),
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pct_broadband_MS, y = pctbbfrac_ASU)) + geom_point() + geom_smooth(method = "lm") + ylab("ACS BB Subscription") + xlab("Microsoft Broadband") + theme_minimal(),
+  ggplot(tx_bb_entrepreneur_merged, aes(x = pctbbfrac_ASU, y = frac_BB.dec)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("M-Lab Broadband") + xlab("ACS BB Subscription"),
+  nrow = 2, ncol = 3, top = "Correlations b/w Broadband Measures"
+)
+
+```
+

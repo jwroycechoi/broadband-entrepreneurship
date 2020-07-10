@@ -1,0 +1,89 @@
+---
+title: "Map and Spatial Analysis"
+author: "Jaewon Royce Choi"
+date: "6/30/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = 'center', warning = FALSE)
+```
+
+In this document, I will make our dataset ready for making maps and conduct other analyses with spatial considerations. Basically, I will add geogrphy information to our dataset and make it a `SpatialPolygonsDataFrame`, which allows generating map widgets. While this document brings together many other tips and tutorials out on the web, I will rely heavily on an [introduction](http://www.econ.uiuc.edu/~lab/workshop/Spatial_in_R.html) by Ignacio Sarmiento-Barbieri.
+
+Now let's install and import necessary packages.
+
+```{r Install and Import Packages, results='hide'}
+#### Spatial Regression Analysis and Mapping ####
+#install.packages("maptools", dependencies = T)
+#install.packages("spdep", dependencies = T)
+#install.packages("leaflet", dependencies = T)
+#install.packages("RColorBrewer", dependencies = T)
+#install.packages("tigris", dependencies = T)
+#install.packages("sf", dependencies = T)
+#install.packages("sp", dependencies = T)
+
+library(maptools)
+library(leaflet)
+library(tidyverse)
+library(RColorBrewer)
+library(spdep)
+library(tigris)
+library(ggplot2)
+library(sf)
+library(sp)
+
+#### Import the merged dataset V2 ####
+tx_bb_entrepreneur_merged_v2 <- read_csv("https://raw.githubusercontent.com/jwroycechoi/broadband-entrepreneurship/master/Datasets/Broadband-Entrepreneurship-TX-merged_v2.csv")
+```
+
+## Create a Spatial Polygons Data Frame
+
+First, we have to retrieve shapefile of the geography that we want. In our case, we want a shapefile of Texas at the county level. Package `tigris` interacts directly with the Census Bureau's geography database and allows us to get the shapefile in various geographical level. Package `leaflet` is a widely used tool to create maps.
+
+I will first get the shapefiles into our R environment and merge our dataset to the spatial dataframe, creating a third version of a dataset (`tx_bb_entrepreneur_merged_v3`) that is `SpatialPolygonsDataFrame` class object using `merge` function within the `sp` package.
+
+```{r Get shapefile}
+#### Get spatial shapefile using tigris package ####
+## State of Texas FIPS code is 48 ##
+## You can either use FIPS code or the name of the state ##
+tx_county <- counties("Texas")
+str(slot(tx_county, "data"))
+
+## Using leaflet, we can now add polygons and tiles to generate a map widget
+leaflet(tx_county) %>% addPolygons() %>% addTiles()
+
+#### Add the spatial element to the dataset ####
+tx_bb_entrepreneur_merged_v3 <- sp::merge(tx_county, tx_bb_entrepreneur_merged_v2,
+                                          by.x = "GEOID", by.y = "FIPS")
+
+class(tx_bb_entrepreneur_merged_v2)
+class(tx_bb_entrepreneur_merged_v3)
+
+```
+
+## Generate Spatial Dependence Matrix
+
+As suggested by previous studies (e.g., Conley & Whitecre, 2016), conventional multiple regression analysis many times ignore the spatial dependence of the data. Spatial elements becomes more important in our project as the unit of analysis in our dataset is essentially based on geographical aspect (i.e., county). Following the [instruction](http://www.econ.uiuc.edu/~lab/workshop/Spatial_in_R.html), I'll generate a spatial weight matrix of Texas counties below.
+
+The specification of the neighboring is generally done in two ways: rook criterion & queen criterion
+
+```{r Spatial Weight Calculation}
+#### Calculating Spatial Weight Matrix ####
+
+list_queen <- poly2nb(tx_bb_entrepreneur_merged_v3, queen = T)
+list_rook <- poly2nb(tx_bb_entrepreneur_merged_v3, queen = F)
+
+## Create weight matrix ##
+W <- nb2listw(list_queen, style = "W", zero.policy = T)
+W
+W_r <- nb2listw(list_rook, style = "W", zero.policy = T)
+W_r
+
+## Plotting neighbor link distribution for each neighboring specification ##
+plot(W, coordinates(tx_bb_entrepreneur_merged_v3))
+plot(W_r, coordinates(tx_bb_entrepreneur_merged_v3))
+
+```
+
+
