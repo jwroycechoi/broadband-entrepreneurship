@@ -863,6 +863,56 @@ acs_broadband_pct_tx <- acs_broadband_pct %>%
   filter(state == "48")
 ```
 
+## FCC Broadband Data Update for Year 2019
+
+I will here retrieve the most up to date FCC 477 broadband data as of June 2019. In order to interact with FCC broadband data directly through its API, one needs to register for the FCC data portal as well as personal API key. Instructions can be found [here](https://dev.socrata.com/foundry/opendata.fcc.gov/sgz3-kiqt). Package used to interact with the data is `RSocrata`.
+
+Using the raw data, I will generate:
+
+* `broadband_pct`: % of broadband availability at the speed of 25/3
+* `mediandown` : Median maximum advertised download speed of the county
+* `medianup` : Median maximum advertised upload speed of the county
+* `prom_provider` : The most prominent ISP of the county
+* `prom_tech` : The most prominent broadband technology (i.e., infrastructure) of the county
+
+```{r FCC Data Update, eval=F}
+install.packages("RSocrata")
+library(RSocrata)
+
+## Retrieve FCC 477 data of TX ##
+
+fcc477_2019_raw <- read.socrata(
+  "https://opendata.fcc.gov/resource/sgz3-kiqt.csv?stateabbr=TX",
+  app_token = "YOUR API KEY",
+  email = "ID",
+  password = "password"
+)
+
+## Clean and Aggregate the data ##
+fcc477_2019 <- fcc477_2019_raw %>% 
+  select(providername, dbaname, blockcode, techcode, maxaddown, maxadup, maxcirdown, maxcirup) %>% 
+  mutate(blockcode = as.character(blockcode),
+         county_FIPS = substr(blockcode, 1, 5),
+         techcode = as.character(techcode),
+         broadband = case_when(maxaddown >= 25 & maxadup >= 3 ~ 1, TRUE ~ 0))
+
+fcc477_2019 <- fcc477_2019 %>% 
+  group_by(county_FIPS) %>% 
+  mutate(broadband_pct = sum(broadband, na.rm = T) / n(),
+         mediandown = median(maxaddown),
+         medianup = median(maxadup),
+         prom_provider = names(which(table(providername) == max(table(providername)))[1]),
+         prom_tech = names(which(table(techcode) == max(table(techcode)))[1])) %>% 
+  arrange(desc(maxaddown, county_FIPS)) %>% ungroup() %>% 
+  distinct(county_FIPS, .keep_all = T)
+```
+
+```{r FCC Data in the background, echo=FALSE, results='hide'}
+library(RSocrata)
+fcc477_2019 <- read_csv("https://raw.githubusercontent.com/jwroycechoi/broadband-entrepreneurship/master/Datasets/FCC477_TX_June_2019.csv")
+
+```
+
 Now we will merge these datasets by county FIPS numbers altogether
 
 ```{r Merge all datasets}
@@ -883,6 +933,11 @@ tx_bb_entrepreneur_merged_v2 <- tx_bb_entrepreneur_merged_v2 %>%
          pct_broadband_mlab = (frac_BB.sept + frac_BB.oct + frac_BB.nov + frac_BB.dec) / 4) %>% 
   select(-c(starts_with("frac_under_"), starts_with("frac_over"), starts_with("samples."), starts_with("BB_samples"), pctbbfrac_poor_ASU, state.y, county.y, starts_with("DL"), starts_with("UL"), starts_with("dl_sample"), starts_with("ul_sample"))) %>% 
   rename(state = state.x, county = county.x)
+
+tx_bb_entrepreneur_merged_v2 <- tx_bb_entrepreneur_merged_v2 %>% 
+  mutate(FIPS = as.character(FIPS)) %>% 
+  left_join(., fcc477_2019, by = c("FIPS" = "county_FIPS")) %>% 
+  select(-c(providername, dbaname, blockcode, techcode, maxaddown, maxadup, maxcirdown, maxcirup, broadband)) %>% rename(pct_broadband_FCC_2019 = broadband_pct)
 
 ## Write CSV ##
 write_csv(tx_bb_entrepreneur_merged_v2, "Broadband-Entrepreneurship-TX-merged_v2.csv")
