@@ -51,4 +51,12 @@ W_r
 plot(W, coordinates(tx_bb_entrepreneur_merged_v3))
 plot(W_r, coordinates(tx_bb_entrepreneur_merged_v3))
 
+bb_ent_semreg <- errorsarlm(pct_10_est_cbp_2018 ~ pct_broadband_FCC + pct_broadband_MS + pct_fixed_acs_2018 + pct_broadband_mlab + IRR2010 + population + pctcollege + pctmillennial +
+                              pctgenx + pctbabyboomer, data = tx_bb_entrepreneur_merged_v3, W_r)
+summary(bb_ent_semreg)
+
+
+model_acs_vd2 <- lm(venturedensity_mean ~ pct_fixed_acs_2018 + IRR2010 + population + pcthighschool + pctcollege + pctmillennial + pctgenx + pctbabyboomer,
+                    data = tx_bb_entrepreneur_merged_v2)
+
 

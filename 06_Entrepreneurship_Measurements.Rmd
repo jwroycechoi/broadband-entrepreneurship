@@ -15,12 +15,11 @@ Here I will explore different potential entrepreneurship measurements available.
 * **Change in Sole Proprietors Share**: Change in the % of sole proprietors in total employment _(b/w 2000, 2010, 2017 each)_
 * **Venture Density**: Online venture activities based on GoDaddy database (average of data points available throughout _2018 and 2019_)
 * **Highly Active Venture Density**: Highly active cluster of venture activities based on GoDaddy database (average of data points available throughout _2018 and 2019_)
-* **Percent of County Business with 0 Employee**: % of business establishment with 0 employee _(County Business Dynamics dataset from 2017 and 2018)_
-* **Percent of Business with less than 10 employee**: % of business establishment with 1-10 employees _(County Business Dynamics dataset from 2017 and 2018)_
-* **Percent of Business with 11-50 employees**: % of business establishment with 11-50 employees _(County Business Dynamics dataset from 2017 and 2018)_
-* **Total Nonemployer**: Number of observations of nonemployer statistics per county _(Nonemployer Statistics dataset from 2017 and 2018)_
-* **Average Nonemployer Establishment**: Average number of nonemployer establishments per county _(Nonemployer Statistics dataset from 2017 and 2018)_
-* **Median Nonemployer Establishment**: Median of nonemployer establishments per county _(Nonemployer Statistics dataset from 2017 and 2018)_
+* **Percent of County Business Establishment with <=50 Employees**: % of business establishments with less than 50 employees _(County Business Dynamics dataset from 2012,2017,2018)_
+* **Percent of County Business Establishment with <=10 Employees**: % of business establishment with less than 10 employees _(County Business Dynamics dataset from 2012,2017,2018)_
+* **Percent of Nonfarm Nonemployer Establishments**: % of nonfarm nonemployer establishment _(Nonemployer Statistics dataset from 2012,2017,2018)_
+* **Percent of Nonfarm Proprietors**: % of nonfarm proprietors _(Bureau of Economic Analysis dataset from 2012,2018)_
+* **Firms with Paid Employees**: Number of firms with paid employees _(Annual Business Survey dataset from 2012,2017)_
 * **Change in Average Nonemployer Establishment**: Change of the average number of nonemployer establishments from 2017 to 2018
 
 Throughout this page, I will explore descriptive statistics of these measures, distributions of the measures, correlations between these measures, and also how these measures look like on the map geographically.
@@ -40,6 +39,10 @@ library(gridExtra)
 #### Import the merged dataset V2 ####
 tx_bb_entrepreneur_merged_v2 <- read_csv("https://raw.githubusercontent.com/jwroycechoi/broadband-entrepreneurship/master/Datasets/Broadband-Entrepreneurship-TX-merged_v2.csv")
 
+tx_bb_entrepreneur_merged_v2 <- tx_bb_entrepreneur_merged_v2 %>% 
+  mutate(chg_pct_50_est_cbp_2012_2018 = pct_50_est_cbp_2018 - pct_50_est_cbp_2012,
+         chg_pct_10_est_cbp_2012_2018 = pct_10_est_cbp_2018 - pct_10_est_cbp_2012)
+
 ## Set up spatial dataframe
 tx_county <- counties("Texas")
 tx_bb_entrepreneur_merged_v3 <- sp::merge(tx_county, tx_bb_entrepreneur_merged_v2,
@@ -49,8 +52,7 @@ tx_bb_entrepreneur_merged_v3 <- sp::merge(tx_county, tx_bb_entrepreneur_merged_v
 ```{r Descriptive Statistics, results='asis'}
 #### Descriptive Statistics ####
 tx_bb_entrepreneur_merged_v2 %>% 
-  select(pct_proprietors_employment_2017, pct_change_pro_emp_2010_2017, pctnonemp_2018, pctsmallent_2018, pctsmall_50_2018, total_ne_2018,
-         avg_nestab_2018, median_nestab_2018, nestab_change_2017_2018, venturedensity_mean, highlyactive_vd_mean) %>% 
+  select(pct_proprietors_employment_2017, pct_50_est_cbp_2018, pct_10_est_cbp_2018, pct_nonfarmneest_nemp_2018, pct_nonfarm_bea_2018, venturedensity_mean, highlyactive_vd_mean) %>% 
   stargazer(as.data.frame(.), type = "html")
 ```
 
@@ -59,125 +61,72 @@ tx_bb_entrepreneur_merged_v2 %>%
 ```{r Distributions of Broadband Measures, echo=FALSE}
 grid.arrange(
   ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_proprietors_employment_2017)) + geom_histogram() + theme_minimal() + xlab("% of Sole Proprietors (2017)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_change_pro_emp_2010_2017)) + geom_histogram() + theme_minimal() + xlab("Change in % of\nSole Proprietors (2010-2017)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pctnonemp_2018)) + geom_histogram() + theme_minimal() + xlab("% of Business with\n0 Employee (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pctsmallent_2018)) + geom_histogram() + theme_minimal() + xlab("% of Business with\n1-10 Employee (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pctsmall_50_2018)) + geom_histogram() + theme_minimal() + xlab("% of Business with\n11-50 Employee (2018)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_50_est_cbp_2018)) + geom_histogram() + theme_minimal() + xlab("% of Establishment\n<50 Employees (2018)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_10_est_cbp_2018)) + geom_histogram() + theme_minimal() + xlab("% of Establishment\n<10 Employees (2018)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_nonfarmneest_nemp_2018)) + geom_histogram() + theme_minimal() + xlab("% of Nonfarm\nNonemployer (2018)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_nonfarm_bea_2018)) + geom_histogram() + theme_minimal() + xlab("% of Nonfarm\nProprietors (2018)"),
   nrow = 2, ncol = 3, top = "Entrepreneurship Measure Distribution (1)"
 )
 
 grid.arrange(
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = total_ne_2018)) + geom_histogram() + theme_minimal() + xlab("Total Nonemployer\nBusiness Obs. (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = avg_nestab_2018)) + geom_histogram() + theme_minimal() + xlab("Average Nonemployer\nEstablishments (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = median_nestab_2018)) + geom_histogram() + theme_minimal() + xlab("Median Nonemployer\nEstablishments (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = nestab_change_2017_2018)) + geom_histogram() + theme_minimal() + xlab("Change in Avg Nonemployer\nEstablishments (2017-2018)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_change_pro_emp_2010_2017)) + geom_histogram() + theme_minimal() + xlab("Change in % of\nSole Proprietors (2010-2017)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = chg_pct_10_est_cbp_2012_2018)) + geom_histogram() + theme_minimal() + xlab("Change in % of\nEstablishments (<10 emp) (2012-2018)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = chg_pct_nonfarmneest_nemp_2012_2018)) + geom_histogram() + theme_minimal() + xlab("Change in % of\nNonfarm Nonemployers (2012-2018)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_chg_bea_2012_2018)) + geom_histogram() + theme_minimal() + xlab("Change in % of\n Nonfarm Proprietors (2012-2018)"),
+  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = chg_firm_2012_2017)) + geom_histogram() + theme_minimal() + xlab("Change in # of\n Firms (2012-2017)"),
   ggplot(tx_bb_entrepreneur_merged_v2, aes(x = venturedensity_mean)) + geom_histogram() + theme_minimal() + xlab("Venture Density"),
   ggplot(tx_bb_entrepreneur_merged_v2, aes(x = highlyactive_vd_mean)) + geom_histogram() + theme_minimal() + xlab("Highly Active\nVenture Density"),
-  nrow = 2, ncol = 3, top = "Entrepreneurship Measure Distribution (2)"
+  nrow = 2, ncol = 4, top = "Entrepreneurship Measure Distribution (2)"
 )
 ```
 
-There are clear outlier problem in the nonemployer statistics. Using the stats from `boxplot`, I will treat them by replacing with mean values
-
-```{r Outlier Treatment}
-## Outlier can be detected using stats generated by boxplot ##
-## I will replace outliers of Nonemployer statistics with mean values  and create new variables ##
-
-tx_bb_entrepreneur_merged_v2 <- tx_bb_entrepreneur_merged_v2 %>% 
-  mutate(avg_nestab_2018_noout = ifelse(avg_nestab_2018 %in% boxplot.stats(avg_nestab_2018)$out, mean(avg_nestab_2018), avg_nestab_2018),
-         median_nestab_2018_noout = ifelse(median_nestab_2018 %in% boxplot.stats(median_nestab_2018)$out, mean(median_nestab_2018), median_nestab_2018),
-         nestab_change_2017_2018_noout = ifelse(nestab_change_2017_2018 %in% boxplot.stats(nestab_change_2017_2018)$out, mean(nestab_change_2017_2018), nestab_change_2017_2018))
-
-tx_bb_entrepreneur_merged_v3 <- sp::merge(tx_county, tx_bb_entrepreneur_merged_v2,
-                                          by.x = "GEOID", by.y = "FIPS")
-```
-
-Check how the distributions look different
-
-```{r Distribution Check Second, echo=FALSE}
-grid.arrange(
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = total_ne_2018)) + geom_histogram() + theme_minimal() + xlab("Total Nonemployer\nBusiness Obs. (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = avg_nestab_2018_noout)) + geom_histogram() + theme_minimal() + xlab("Average Nonemployer\nEstablishments (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = median_nestab_2018_noout)) + geom_histogram() + theme_minimal() + xlab("Median Nonemployer\nEstablishments (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = nestab_change_2017_2018_noout)) + geom_histogram() + theme_minimal() + xlab("Change in Avg Nonemployer\nEstablishments (2017-2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = venturedensity_mean)) + geom_histogram() + theme_minimal() + xlab("Venture Density"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = highlyactive_vd_mean)) + geom_histogram() + theme_minimal() + xlab("Highly Active\nVenture Density"),
-  nrow = 2, ncol = 3, top = "Entrepreneurship Measure Distribution (2)"
-)
-```
 
 ## Correlations b/w Entrepreneurship Measures
 
-```{r Correlations b/w Entrepreneurship Measures, echo=FALSE}
-grid.arrange(
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_proprietors_employment_2017, y = pct_change_pro_emp_2010_2017)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("Change in % of\nSole Proprietors (2010-2017)") + xlab("% of Sole Proprietors (2017)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_proprietors_employment_2017, y = pctnonemp_2018)) + geom_point() + geom_smooth(method = "lm") + xlab("% of Sole Proprietors (2017)") + ylab("% of Business with\n0 Employee (2018)") + theme_minimal(),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_proprietors_employment_2017, y = pctsmallent_2018)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + xlab("% of Sole Proprietors (2017)") + ylab("% of Business with\n1-10 Employee (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pct_proprietors_employment_2017, y = pctsmall_50_2018)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + xlab("% of Sole Proprietors (2017)") + ylab("% of Business with\n11-50 Employee (2018)"),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pctnonemp_2018, y = pctsmallent_2018)) + geom_point() + geom_smooth(method = "lm") + ylab("% of Business with\n1-10 Employee (2018)") + xlab("% of Business with\n0 Employee (2018)") + theme_minimal(),
-  ggplot(tx_bb_entrepreneur_merged_v2, aes(x = pctnonemp_2018, y = pctsmall_50_2018)) + geom_point() + geom_smooth(method = "lm") + theme_minimal() + ylab("% of Business with\n11-50 Employee (2018)") + xlab("% of Business with\n0 Employee (2018)"),
-  nrow = 2, ncol = 3, top = "Correlation b/w Entrepreneurship Measures (1)"
-)
-```
-
 ```{r Correlation and Relationship Altogether, echo=FALSE}
 tx_bb_entrepreneur_merged_v2 %>% 
-  select(pct_proprietors_employment_2017, pct_change_pro_emp_2010_2017, pctnonemp_2018, pctsmallent_2018, pctsmall_50_2018, total_ne_2018,
-         avg_nestab_2018_noout, median_nestab_2018_noout, nestab_change_2017_2018_noout, venturedensity_mean, highlyactive_vd_mean) %>% 
+  select(pct_change_pro_emp_2010_2017, chg_pct_10_est_cbp_2012_2018, chg_pct_nonfarmneest_nemp_2012_2018, pct_chg_bea_2012_2018, chg_firm_2012_2017, venturedensity_mean, highlyactive_vd_mean) %>% 
+  PerformanceAnalytics::chart.Correlation(histogram = T)
+
+tx_bb_entrepreneur_merged_v2 %>% 
+  select(pct_proprietors_employment_2017, pct_50_est_cbp_2018, pct_10_est_cbp_2018, pct_nonfarmneest_nemp_2018, pct_nonfarm_bea_2018, venturedensity_mean, highlyactive_vd_mean) %>% 
   PerformanceAnalytics::chart.Correlation(histogram = T)
 ```
 
-## Exploratory Factor Analysis of Entrepreneurship
-
-In this section, I will conduct a exploratory factor analysis on the entrepreneurship measures we have. Currently, there are numbers of measurements that are based on different methodological details, and capture somewhat different pictures of entrepreneurship. Instead of confirmatory factor analysis (CFA), an exploratory factor analysis (EFA) seems more relevant as I am exploring how different measures load to potential underlying factors. 
-
-Since the proprietorship data is likely to be unavailable from other states, I will mainly include percentages of small or no-employee business from County Business Dynamics dataset, numbers from nonemployer statistics dataset, and venture density statistics from GoDaddy dataset.
-
-Based on such selection of variables, it is expected the variables may load to potentially 2 to 3 factors. I will conduct EFA here informed by tutorials by [John M Quick](http://rtutorialseries.blogspot.com/2011/10/r-tutorial-series-exploratory-factor.html) and [R-bloggers post](https://www.r-bloggers.com/exploratory-factor-analysis-in-r/).
-
-```{r Exploratory Factor Analysis}
-library(psych)
-
-ent_cor <- tx_bb_entrepreneur_merged_v2 %>% 
-  select(pctnonemp_2018, pctsmallent_2018, pctsmall_50_2018, avg_nestab_2018_noout, median_nestab_2018_noout, nestab_change_2017_2018_noout, venturedensity_mean, highlyactive_vd_mean) %>% cor(method = c("pearson"), use = "pairwise.complete.obs")
-
-efa_result1 <- fa(r = ent_cor, nfactors = 4, rotate = "varimax", fm = "pa")
-print.psych(efa_result1, sort = T)
-
-efa_result1$loadings
-
-
-```
 
 ## Mapping Different Entrepreneurship Measures
 
 ```{r Map Setup, echo=FALSE, results='hide'}
 ## Create continuous color palette function based on FCC broadband range (0~1) ##
-pal <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$pct_proprietors_employment_2017)
+pal <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$pct_change_pro_emp_2010_2017)
 pal2 <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$venturedensity_mean)
 pal3 <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$highlyactive_vd_mean)
-pal4 <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$avg_nestab_2018_noout)
+pal4 <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$chg_pct_10_est_cbp_2012_2018)
+pal5 <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$chg_pct_nonfarmneest_nemp_2012_2018)
+pal6 <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$pct_chg_bea_2012_2018)
+pal7 <- colorNumeric(palette = "YlOrRd", domain = tx_bb_entrepreneur_merged_v2$chg_firm_2012_2017)
 ## Set a popup template ##
 popup_tx <- paste0("<strong>", tx_bb_entrepreneur_merged_v3$county,
                    "</strong><br />% Sole Proprietor: ", round(tx_bb_entrepreneur_merged_v3$pct_proprietors_employment_2017*100, digits = 1), "%",
                    "<br />Venture Density: ", round(tx_bb_entrepreneur_merged_v3$venturedensity_mean, digits = 1),
                    "<br />Highly Active VD: ", round(tx_bb_entrepreneur_merged_v3$highlyactive_vd_mean, digits = 1),
-                   "<br />Avg # of Nonemployer Establishment: ", round(tx_bb_entrepreneur_merged_v3$avg_nestab_2018_noout*100, digits = 0))
+                   "<br />Total Employment (2018): ", tx_bb_entrepreneur_merged_v3$emp_cbp_2018,
+                   "<br />Total # Firms (2017): ", tx_bb_entrepreneur_merged_v3$firm_2017)
 head(popup_tx)
 ## Create a map object ##
 map <- leaflet(tx_bb_entrepreneur_merged_v3)
 ```
 
-### Sole Proprietorship in Texas
+### Change in the Share of Sole Proprietors (2010-2017)
 
 ```{r Sole Proprietorship, echo=FALSE}
 ## Sole Proprietors Share Map ##
 map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
   addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
-                                   color = ~pal(pct_proprietors_employment_2017),
+                                   color = ~pal(pct_change_pro_emp_2010_2017),
               popup = ~popup_tx) %>% 
-  addLegend("bottomright", pal = pal, values = ~pct_proprietors_employment_2017,
-            title = "Sole Proprietors Share (%)",
+  addLegend("bottomright", pal = pal, values = ~pct_change_pro_emp_2010_2017,
+            title = "Change in<br>Sole Proprietors Share (%)",
             labFormat = labelFormat(suffix = "%", transform = function(x) 100*x), na.label = "N/A", opacity = 1)
 ```
 
@@ -206,17 +155,58 @@ map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>%
             opacity = 1)
 ```
 
-### Nonemployer Establishment in Texas
+### Change in Establishments with less than 50 Employees (2012-2018)
 
 ```{r Nonemployer Establishment, echo=FALSE}
 ## Nonemployer Establishment Map ##
 map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
   addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
-              color = ~pal4(avg_nestab_2018_noout),
+              color = ~pal4(chg_pct_10_est_cbp_2012_2018),
               popup = ~popup_tx) %>% 
-  addLegend("bottomright", pal = pal4, values = ~avg_nestab_2018_noout,
-            title = "Avg Nonemployer\nEstablishments",
+  addLegend("bottomright", pal = pal4, values = ~chg_pct_10_est_cbp_2012_2018,
+            title = "Change in <br><10 Establishments (%)",
+            labFormat = labelFormat(suffix = "%", transform = function(x) 100*x), na.label = "N/A",
             opacity = 1)
 ```
 
+### Change in Nonfarm Nonemployer Establishments (2012-2018)
 
+```{r Nonemployer Establishment, echo=FALSE}
+## Nonemployer Establishment Map ##
+map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
+  addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
+              color = ~pal5(chg_pct_nonfarmneest_nemp_2012_2018),
+              popup = ~popup_tx) %>% 
+  addLegend("bottomright", pal = pal5, values = ~chg_pct_nonfarmneest_nemp_2012_2018,
+            title = "Change in <br>Nonfarm Nonemployer (%)",
+            labFormat = labelFormat(suffix = "%", transform = function(x) 100*x), na.label = "N/A",
+            opacity = 1)
+```
+
+### Change in Nonfarm Proprietors (2012-2018)
+
+```{r Nonemployer Establishment, echo=FALSE}
+## Nonemployer Establishment Map ##
+map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
+  addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
+              color = ~pal6(pct_chg_bea_2012_2018),
+              popup = ~popup_tx) %>% 
+  addLegend("bottomright", pal = pal6, values = ~pct_chg_bea_2012_2018,
+            title = "Change in <br>Nonfarm Proprietors (%)",
+            labFormat = labelFormat(suffix = "%", transform = function(x) 100*x), na.label = "N/A",
+            opacity = 1)
+```
+
+### Change in Number of Firms with Paid Employees (2012-2017)
+
+```{r Nonemployer Establishment, echo=FALSE}
+## Nonemployer Establishment Map ##
+map %>% addTiles() %>% setView(lng = -100.000, lat = 31.000, zoom = 6) %>% 
+  addPolygons(stroke = F, smoothFactor = 0.2, fillOpacity = 0.9,
+              color = ~pal7(chg_firm_2012_2017),
+              popup = ~popup_tx) %>% 
+  addLegend("bottomright", pal = pal7, values = ~chg_firm_2012_2017,
+            title = "Change in <br># of Firms",
+            na.label = "N/A",
+            opacity = 1)
+```
